@@ -15,9 +15,10 @@ class Display():
     IS_DEBUG        = False
     display_width   = None
     display_height  = None
-    font_size       = 16
+    font_size       = 14
     cache_file      = 'cache.dat'
-    cache_dir       = '/home/pi/display/'
+    diff_file       = 'diff.dat'
+    cache_dir       = '/home/pi/pi-display/'
     font_path       = '/home/pi/pi-display/'
 
     def initialize(self):
@@ -44,7 +45,9 @@ class Display():
                 { 'date': '2020-03-01', 'cases': 32},
                 { 'date': '2020-03-01', 'cases': 44},
                 { 'date': '2020-03-10', 'cases': 58},
-                { 'date': '2020-03-11', 'cases': 104}
+                { 'date': '2020-03-11', 'cases': 104},
+                { 'date': '2020-03-11', 'cases': 132},
+                { 'date': '2020-03-11', 'cases': 150}
             ]
         else:
             data = Covid19().load()
@@ -109,12 +112,17 @@ class Display():
         last_value = int(self._load_last())
         current_cases = int(data[-1]['cases'])
         diff = current_cases - last_value
+        last_diff = self._load_diff()
+
+        if diff > 0 and diff != last_diff:
+            self._save_diff(diff)
 
         if diff > 0:
-            text = "{0} +{1}     ".format(current_cases, diff)
+            text = "{0} +{1}       ".format(current_cases, diff)
         else:
-            text = "{0}    ".format(current_cases)
-        drawred.text((130, 6), text, font=font, fill = 0)
+            text = "{0} +{1}       ".format(current_cases, last_diff)
+        
+        drawred.text((104, 6), text, font=font, fill = 0)
 
         return HRedimage
 
@@ -126,7 +134,7 @@ class Display():
         drawblack.line((6, 6, 6, self.display_width - 6), fill = 0)
         drawblack.line((6, self.display_width - 6, self.display_height - 6, self.display_width - 6), fill = 0)
 
-        drawblack.text((10, 6), "%s:    " % data[-1]['date'], font=font, fill = 0)
+        drawblack.text((10, 6), "%s: " % data[-1]['date'], font=font, fill = 0)
 
         return HBlackimage
 
@@ -138,11 +146,22 @@ class Display():
         with open(self._cache_file(), 'r') as handle:
             return handle.readline()
 
+    def _save_diff(self, value):
+        with open(self._diff_file(), 'w') as handle:
+            handle.write("%s" % value)
+
+    def _load_diff(self):
+        with open(self._diff_file(), 'r') as handle:
+            return handle.readline()
+    
     def _cache_file(self):
         return self.cache_file if self.IS_DEBUG else self.cache_dir + self.cache_file
 
+    def _diff_file(self):
+        return self.diff_file if self.IS_DEBUG else self.cache_dir + self.diff_file
+
     def _font_path(self):
-        return 'theboldfont.ttf' if self.IS_DEBUG else '/home/pi/pi-display/theboldfont.ttf' 
+        return 'arialbd.ttf' if self.IS_DEBUG else '/home/pi/pi-display/arialbd.ttf' 
 
 display = Display()
 display.initialize()
