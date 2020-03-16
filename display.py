@@ -38,29 +38,35 @@ class Display():
 
         if self.IS_DEBUG:
             data = [
-                { 'date': '2020-03-01', 'cases': 1},
-                { 'date': '2020-03-01', 'cases': 2},
-                { 'date': '2020-03-01', 'cases': 5},
-                { 'date': '2020-03-01', 'cases': 10},
-                { 'date': '2020-03-01', 'cases': 32},
-                { 'date': '2020-03-01', 'cases': 44},
-                { 'date': '2020-03-10', 'cases': 58},
-                { 'date': '2020-03-11', 'cases': 104},
-                { 'date': '2020-03-11', 'cases': 132},
-                { 'date': '2020-03-11', 'cases': 150}
+                { 'date': '2020-03-01', 'cases': 1, 'deaths': 0, 'healed': 0},
+                { 'date': '2020-03-02', 'cases': 1, 'deaths': 0, 'healed': 0},
+                { 'date': '2020-03-03', 'cases': 2, 'deaths': 0, 'healed': 0},
+                { 'date': '2020-03-04', 'cases': 4, 'deaths': 0, 'healed': 0},
+                { 'date': '2020-03-05', 'cases': 7, 'deaths': 0, 'healed': 0},
+                { 'date': '2020-03-06', 'cases': 12, 'deaths': 1, 'healed': 0},
+                { 'date': '2020-03-07', 'cases': 20, 'deaths': 2, 'healed': 0},
+                { 'date': '2020-03-08', 'cases': 24, 'deaths': 2, 'healed': 1},
+                { 'date': '2020-03-08', 'cases': 28, 'deaths': 2, 'healed': 2},
+                { 'date': '2020-03-08', 'cases': 32, 'deaths': 2, 'healed': 2},
             ]
         else:
             data = Covid19().load()
 
-        HBlackimage = self._draw_black(data)
-        HRedimage = self._draw_red(data)
-
-        self._save_last(data[-1]['cases'])
+        current_cases = data[-1]['cases']
+        last_cases = self._load_last()
+        
+        if int(current_cases) == int(last_cases):
+            return None, None
+        else:
+            HBlackimage = self._draw_black(data)
+            HRedimage = self._draw_red(data)
+            self._save_last(data[-1]['cases'])
 
         return HBlackimage, HRedimage
 
     def commit_to_display(self, HBlackimage, HRedimage):
         if 'epd2in7b' in sys.modules:
+            self.epd.Clear(0xFF)
             self.epd.display(self.epd.getbuffer(HBlackimage), self.epd.getbuffer(HRedimage))
             self.epd.sleep()
         else:
@@ -80,7 +86,6 @@ class Display():
         if 'epd2in7b' in sys.modules:
             self.epd = epd2in7b.EPD()
             self.epd.init()
-            self.epd.Clear(0xFF)
             self.display_width = epd2in7b.EPD_WIDTH
             self.display_height = epd2in7b.EPD_HEIGHT
 
@@ -122,7 +127,9 @@ class Display():
         else:
             text = "{0} +{1}       ".format(current_cases, last_diff)
         
-        drawred.text((104, 6), text, font=font, fill = 0)
+        drawred.text((95, 6), text, font=font, fill = 0)
+        drawred.text((95, 24), "{0}".format(data[-1]['deaths']), font=font, fill = 0)
+        drawred.text((95, 42), "{0}".format(data[-1]['healed']), font=font, fill = 0)
 
         return HRedimage
 
@@ -135,6 +142,8 @@ class Display():
         drawblack.line((6, self.display_width - 6, self.display_height - 6, self.display_width - 6), fill = 0)
 
         drawblack.text((10, 6), "%s: " % data[-1]['date'], font=font, fill = 0)
+        drawblack.text((33, 24), "Deaths: ", font=font, fill = 0)
+        drawblack.text((33, 42), "Healed: ", font=font, fill = 0)
 
         return HBlackimage
 
@@ -166,4 +175,5 @@ class Display():
 display = Display()
 display.initialize()
 black, red = display.prepare_images()
-display.commit_to_display(black, red)
+if black is not None and red is not None:
+    display.commit_to_display(black, red)
