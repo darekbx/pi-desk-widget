@@ -1,18 +1,19 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 
+import os
 import sys
 import time
 from PIL import Image, ImageDraw, ImageFont
 import traceback
 import math
-import epd2in7b
+#import epd2in7b
 
 from covid19 import Covid19
 
 class Display():
 
-    IS_DEBUG        = False
+    IS_DEBUG        = 'raspberrypi' not in os.uname()
     display_width   = None
     display_height  = None
     font_size       = 14
@@ -36,7 +37,7 @@ class Display():
 
     def prepare_images(self):
 
-        if self.IS_DEBUG:
+        if False and self.IS_DEBUG:
             data = [
                 { 'date': '2020-03-01', 'cases': 1, 'deaths': 0, 'healed': 0},
                 { 'date': '2020-03-02', 'cases': 1, 'deaths': 0, 'healed': 0},
@@ -50,7 +51,7 @@ class Display():
                 { 'date': '2020-03-08', 'cases': 32, 'deaths': 2, 'healed': 2},
             ]
         else:
-            data = Covid19().load()
+            data = Covid19().load() 
 
         current_cases = data[-1]['cases']
         last_cases = self._load_last()
@@ -61,8 +62,7 @@ class Display():
             HBlackimage = self._draw_black(data)
             HRedimage = self._draw_red(data)
             self._save_last(data[-1]['cases'])
-
-        return HBlackimage, HRedimage
+            return HBlackimage, HRedimage
 
     def commit_to_display(self, HBlackimage, HRedimage):
         if 'epd2in7b' in sys.modules:
@@ -129,7 +129,9 @@ class Display():
         
         drawred.text((95, 6), text, font=font, fill = 0)
         drawred.text((95, 24), "{0}".format(data[-1]['deaths']), font=font, fill = 0)
-        drawred.text((95, 42), "{0}".format(data[-1]['healed']), font=font, fill = 0)
+        
+        if data[-1]['healed'] > 0:
+            drawred.text((95, 42), "{0}".format(data[-1]['healed']), font=font, fill = 0)
 
         return HRedimage
 
