@@ -1,62 +1,59 @@
 import requests
 import json
 
+from bs4 import BeautifulSoup
 from datetime import datetime
 import csv
 
 class Covid19():
-	ARGS = "?f=json&where=1=1&returnGeometry=false&spatialRel=esriSpatialRelIntersects&outFields=*&resultOffset=0&resultRecordCount=100&cacheHint=true"
-	URL = "https://services1.arcgis.com/YmCK8KfESHdxUQgm/arcgis/rest/services/KoronawirusPolska_czas/FeatureServer/0/query"
-
-	ALTERNATIVE_URL = "http://covid.sikorski.pw/data/cov.csv"
+	WORLDOMETER = "https://www.worldometers.info/coronavirus"
 
 	def load(self):
-		return self.load_alternate()
+		return self.load_sikorski()
 
-	def load_alternate(self):
-		response = requests.get(self.ALTERNATIVE_URL, timeout = 30)
-		out = []
-		for index, line in enumerate(response.text.split('\r\n')):
-			if index == 0:
-				continue
-			if len(line) < 5:
-				continue
+	def load_worldometer(self):
+		response = requests.get(self.WORLDOMETER, timeout = 30)
 
-			chunks = line.split(',')
-			full_date = chunks[0]
-			date = full_date.split(" ")[0]
-
-			if len(out) > 1 and out[-1]['date'] == date:
-				out[-1].update({
-					'cases': int(chunks[1]), 
-					'deaths': int(chunks[2])
-				}) 
-			else:
-				out.append({ 
-					'date': date, 
-					'cases': int(chunks[1]), 
-					'deaths': int(chunks[2]), 
-					'healed': -1,
-				})
+		soup = BeautifulSoup(response.text, 'html.parser')
+		main_table = soup.find(id='main_table_countries_today')
 		
-		return out
+		rows = main_table.find_all('tr')[1:]
+		data = []
 
-	def load_arcgis(self):
-		response = requests.get(self.URL + self.ARGS, timeout = 30)
-		data = json.loads(response.text)
+		for row in rows:
+			tr = row.find('tr')
+			items = row.find_all('td')
+			country = items[0].text
 
-		out = []
-		
-		for row in data['features']:
-			date = self.toDate(row['attributes']['Aktualizacja'])
-			out.append({ 
-				'date': date, 
-				'cases': row['attributes']['Potwierdzone'], 
-				'deaths': row['attributes']['Smiertelne'], 
-				'healed': row['attributes']['Wyleczone'],
+			total_cases = items[1].text
+			new_cases = items[2].text
+
+			total_deaths = items[3].text
+			new_deaths = items[4].text
+
+			total_recovered = items[5].text
+			critical_cases = items[7].text
+			
+			data.append({
+				'country': country,
+				'total_cases': self.format_int(total_cases),
+				'new_cases': self.format_int(new_cases),
+				'total_deaths': self.format_int(total_deaths),
+				'new_deaths': self.format_int(new_deaths),
+				'total_recovered': self.format_int(total_recovered),
+				'critical_cases': self.format_int(critical_cases)
 			})
-		
-		return out
 
-	def toDate(self, value):
-		return datetime.utcfromtimestamp(int(value / 1000)).strftime('%Y-%m-%d')
+		total_cases = data[-1]
+		poland_cases = list(filter(lambda item: item['country'] == 'Poland', data))
+
+		if len(poland_cases) == 1:
+			print(poland_cases)
+
+	def format_int(self, value):
+		value = value.rstrip()
+		if len(value) == 0:
+			return 0
+		return int(value.replace(',', '').replace('+', ''))
+
+Covid19().load_worldometer()
