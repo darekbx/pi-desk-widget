@@ -1,17 +1,21 @@
 import requests
 import json
+import time
 
 from bs4 import BeautifulSoup
 from datetime import datetime
 import csv
 
+from storage import Storage
+
 class Covid19():
 	WORLDOMETER = "https://www.worldometers.info/coronavirus"
 
-	def load(self):
-		return self.load_sikorski()
 
 	def load_worldometer(self):
+		storage = Storage()
+		storage.connect()
+
 		response = requests.get(self.WORLDOMETER, timeout = 30)
 
 		soup = BeautifulSoup(response.text, 'html.parser')
@@ -35,20 +39,27 @@ class Covid19():
 			critical_cases = items[7].text
 			
 			data.append({
-				'country': country,
+				'area': country,
 				'total_cases': self.format_int(total_cases),
 				'new_cases': self.format_int(new_cases),
 				'total_deaths': self.format_int(total_deaths),
 				'new_deaths': self.format_int(new_deaths),
 				'total_recovered': self.format_int(total_recovered),
-				'critical_cases': self.format_int(critical_cases)
+				'critical_cases': self.format_int(critical_cases),
+				'timestamp': int(round(time.time() * 1000))
 			})
 
 		total_cases = data[-1]
-		poland_cases = list(filter(lambda item: item['country'] == 'Poland', data))
+		total_cases.update({'area': 'Total'})
+		storage.add(total_cases)
+		poland_cases = list(filter(lambda item: item['area'] == 'Poland', data))
+		print(total_cases)
 
 		if len(poland_cases) == 1:
-			print(poland_cases)
+			storage.add(poland_cases[0])
+			print(poland_cases[0])
+
+		storage.close()
 
 	def format_int(self, value):
 		value = value.rstrip()
