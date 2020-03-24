@@ -1,6 +1,5 @@
 import requests
 import json
-import time
 
 from bs4 import BeautifulSoup
 from datetime import datetime
@@ -11,8 +10,18 @@ from storage import Storage
 class Covid19():
 	WORLDOMETER = "https://www.worldometers.info/coronavirus"
 
+	def load(self):
+		storage = Storage()
+		storage.connect()
+		rows = storage.fetch()
+		storage.close()
 
-	def load_worldometer(self):
+		for row in rows:
+			print(row)
+
+		return rows
+
+	def refresh(self):
 		storage = Storage()
 		storage.connect()
 
@@ -21,6 +30,7 @@ class Covid19():
 		soup = BeautifulSoup(response.text, 'html.parser')
 		main_table = soup.find(id='main_table_countries_today')
 		
+		today = datetime.today()
 		rows = main_table.find_all('tr')[1:]
 		data = []
 
@@ -30,34 +40,30 @@ class Covid19():
 			country = items[0].text
 
 			total_cases = items[1].text
-			new_cases = items[2].text
-
 			total_deaths = items[3].text
-			new_deaths = items[4].text
-
 			total_recovered = items[5].text
+			active_cases = items[6].text
 			critical_cases = items[7].text
 			
 			data.append({
 				'area': country,
 				'total_cases': self.format_int(total_cases),
-				'new_cases': self.format_int(new_cases),
 				'total_deaths': self.format_int(total_deaths),
-				'new_deaths': self.format_int(new_deaths),
 				'total_recovered': self.format_int(total_recovered),
+				'active_cases': self.format_int(active_cases),
 				'critical_cases': self.format_int(critical_cases),
-				'timestamp': int(round(time.time() * 1000))
+				'year': today.year,
+				'month': today.month,
+				'day': today.day
 			})
 
 		total_cases = data[-1]
 		total_cases.update({'area': 'Total'})
 		storage.add(total_cases)
 		poland_cases = list(filter(lambda item: item['area'] == 'Poland', data))
-		print(total_cases)
 
 		if len(poland_cases) == 1:
 			storage.add(poland_cases[0])
-			print(poland_cases[0])
 
 		storage.close()
 
@@ -67,4 +73,5 @@ class Covid19():
 			return 0
 		return int(value.replace(',', '').replace('+', ''))
 
-Covid19().load_worldometer()
+if __name__ == "__main__":
+	Covid19().load()
