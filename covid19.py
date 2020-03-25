@@ -15,10 +15,6 @@ class Covid19():
 		storage.connect()
 		rows = storage.fetch()
 		storage.close()
-
-		for row in rows:
-			print(row)
-
 		return rows
 
 	def refresh(self):
@@ -74,4 +70,6 @@ class Covid19():
 		return int(value.replace(',', '').replace('+', ''))
 
 if __name__ == "__main__":
-	Covid19().load()
+	covid19 = Covid19()
+	covid19.refresh()
+	covid19.load()

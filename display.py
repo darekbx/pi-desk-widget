@@ -10,6 +10,7 @@ import math
 #import epd2in7b
 
 from covid19 import Covid19
+from storage import Storage
 
 class Display():
 
@@ -21,6 +22,8 @@ class Display():
     diff_file       = 'diff.dat'
     cache_dir       = '/home/pi/pi-display/'
     font_path       = '/home/pi/pi-display/'
+
+    covid19 = Covid19()
 
     def initialize(self):
         if self.IS_DEBUG:
@@ -36,32 +39,21 @@ class Display():
             exit()
 
     def prepare_images(self):
+        self.covid19.refresh() 
+        data = self.covid19.load()
 
-        if False and self.IS_DEBUG:
-            data = [
-                { 'date': '2020-03-01', 'cases': 1, 'deaths': 0, 'healed': 0},
-                { 'date': '2020-03-02', 'cases': 1, 'deaths': 0, 'healed': 0},
-                { 'date': '2020-03-03', 'cases': 2, 'deaths': 0, 'healed': 0},
-                { 'date': '2020-03-04', 'cases': 4, 'deaths': 0, 'healed': 0},
-                { 'date': '2020-03-05', 'cases': 7, 'deaths': 0, 'healed': 0},
-                { 'date': '2020-03-06', 'cases': 12, 'deaths': 1, 'healed': 0},
-                { 'date': '2020-03-07', 'cases': 20, 'deaths': 2, 'healed': 0},
-                { 'date': '2020-03-08', 'cases': 24, 'deaths': 2, 'healed': 1},
-                { 'date': '2020-03-08', 'cases': 28, 'deaths': 2, 'healed': 2},
-                { 'date': '2020-03-08', 'cases': 32, 'deaths': 2, 'healed': 2},
-            ]
-        else:
-            data = Covid19().load() 
+        current_poland = next(row for row in reversed(data) if row['area'] == 'Poland')
+        current_total = next(row for row in reversed(data) if row['area'] == 'Total')
 
-        current_cases = data[-1]['cases']
+        current_cases = current_poland['total_cases']
         last_cases = self._load_last()
         
         if int(current_cases) == int(last_cases):
             return None, None
         else:
-            HBlackimage = self._draw_black(data)
+            HBlackimage = self._draw_black(current_poland)
             HRedimage = self._draw_red(data)
-            self._save_last(data[-1]['cases'])
+            self._save_last(current_cases)
             return HBlackimage, HRedimage
 
     def commit_to_display(self, HBlackimage, HRedimage):
@@ -90,32 +82,34 @@ class Display():
             self.display_height = epd2in7b.EPD_HEIGHT
 
     def _draw_red(self, data):
+        data_pl = [row for row in data if row['area'] == 'Poland']
+
         font = ImageFont.truetype(self._font_path(), self.font_size)
         HRedimage = Image.new('1', (self.display_height, self.display_width), 255)
         drawred = ImageDraw.Draw(HRedimage)
 
         top_offset = 170
         x = 6
-        step = math.floor((self.display_height - 6) / (len(data) - 1))
-        maximum = max(item['cases'] for item in data)
+        step = math.floor((self.display_height - 6) / (len(data_pl) - 1))
+        maximum = max(item['total_cases'] for item in data_pl)
         height_step = (self.display_width - 6 * 2) / maximum
 
         last_x = 6
         last_y = 0
 
-        for index, item in enumerate(data):
+        for index, item in enumerate(data_pl):
             if index == 0:
-                last_y = int(item['cases'])
+                last_y = int(item['total_cases'])
                 continue
             
             y1 = top_offset - last_y * height_step
-            y2 = top_offset - int(item['cases']) * height_step
+            y2 = top_offset - int(item['total_cases']) * height_step
             drawred.line((x, y1, x + step, y2), fill = 0, width = 2)
             x = x + step
-            last_y = int(item['cases'])
+            last_y = int(item['total_cases'])
         
         last_value = int(self._load_last())
-        current_cases = int(data[-1]['cases'])
+        current_cases = int(data_pl[-1]['total_cases'])
         diff = current_cases - last_value
         last_diff = self._load_diff()
 
@@ -128,22 +122,22 @@ class Display():
             text = "{0} +{1}       ".format(current_cases, last_diff)
         
         drawred.text((95, 6), text, font=font, fill = 0)
-        drawred.text((95, 24), "{0}".format(data[-1]['deaths']), font=font, fill = 0)
+        drawred.text((95, 24), "{0}".format(data_pl[-1]['total_deaths']), font=font, fill = 0)
         
-        if data[-1]['healed'] > 0:
-            drawred.text((95, 42), "{0}".format(data[-1]['healed']), font=font, fill = 0)
+        if data_pl[-1]['total_recovered'] > 0:
+            drawred.text((95, 42), "{0}".format(data_pl[-1]['total_recovered']), font=font, fill = 0)
 
         return HRedimage
 
-    def _draw_black(self, data):
+    def _draw_black(self, last_cases):
         font = ImageFont.truetype(self._font_path(), self.font_size)
         HBlackimage = Image.new('1', (self.display_height, self.display_width), 255)
         drawblack = ImageDraw.Draw(HBlackimage)
 
         drawblack.line((6, 6, 6, self.display_width - 6), fill = 0)
         drawblack.line((6, self.display_width - 6, self.display_height - 6, self.display_width - 6), fill = 0)
-
-        drawblack.text((10, 6), "%s: " % data[-1]['date'], font=font, fill = 0)
+        
+        drawblack.text((10, 6), "{0}-{1:02d}-{2:02d}: ".format(last_cases['year'], last_cases['month'], last_cases['day']), font=font, fill = 0)
         drawblack.text((33, 24), "Deaths: ", font=font, fill = 0)
         drawblack.text((33, 42), "Healed: ", font=font, fill = 0)
 
