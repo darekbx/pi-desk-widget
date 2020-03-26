@@ -52,7 +52,7 @@ class Display():
             return None, None
         else:
             HBlackimage = self._draw_black(current_poland)
-            HRedimage = self._draw_red(data)
+            HRedimage = self._draw_red(data, current_total)
             self._save_last(current_cases)
             return HBlackimage, HRedimage
 
@@ -81,7 +81,7 @@ class Display():
             self.display_width = epd2in7b.EPD_WIDTH
             self.display_height = epd2in7b.EPD_HEIGHT
 
-    def _draw_red(self, data):
+    def _draw_red(self, data, current_total):
         data_pl = [row for row in data if row['area'] == 'Poland']
 
         font = ImageFont.truetype(self._font_path(), self.font_size)
@@ -122,10 +122,11 @@ class Display():
             text = "{0} +{1}       ".format(current_cases, last_diff)
         
         drawred.text((95, 6), text, font=font, fill = 0)
-        drawred.text((95, 24), "{0}".format(data_pl[-1]['total_deaths']), font=font, fill = 0)
+        drawred.text((95, 24), "{0}".format(current_total['total_cases']), font=font, fill = 0)
+        drawred.text((95, 42), "{0}".format(data_pl[-1]['total_deaths']), font=font, fill = 0)
         
         if data_pl[-1]['total_recovered'] > 0:
-            drawred.text((95, 42), "{0}".format(data_pl[-1]['total_recovered']), font=font, fill = 0)
+            drawred.text((95, 60), "{0}".format(data_pl[-1]['total_recovered']), font=font, fill = 0)
 
         return HRedimage
 
@@ -138,8 +139,9 @@ class Display():
         drawblack.line((6, self.display_width - 6, self.display_height - 6, self.display_width - 6), fill = 0)
         
         drawblack.text((10, 6), "{0}-{1:02d}-{2:02d}: ".format(last_cases['year'], last_cases['month'], last_cases['day']), font=font, fill = 0)
-        drawblack.text((33, 24), "Deaths: ", font=font, fill = 0)
-        drawblack.text((33, 42), "Healed: ", font=font, fill = 0)
+        drawblack.text((33, 24), "Total: ", font=font, fill = 0)
+        drawblack.text((33, 42), "Deaths: ", font=font, fill = 0)
+        drawblack.text((33, 60), "Healed: ", font=font, fill = 0)
 
         return HBlackimage
 

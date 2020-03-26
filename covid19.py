@@ -3,7 +3,6 @@ import json
 
 from bs4 import BeautifulSoup
 from datetime import datetime
-import csv
 
 from storage import Storage
 
