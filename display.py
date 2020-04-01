@@ -11,9 +11,11 @@ import math
 
 from covid19 import Covid19
 from storage import Storage
+from frisco import FriscoDeliveryObserver
 
 class Display():
 
+    REFRESH_ON_CHANGE = False
     IS_DEBUG        = 'raspberrypi' not in os.uname()
     display_width   = None
     display_height  = None
@@ -24,6 +26,7 @@ class Display():
     font_path       = '/home/pi/pi-display/'
 
     covid19 = Covid19()
+    friscoDeliveryObserver = FriscoDeliveryObserver()
 
     def initialize(self):
         if self.IS_DEBUG:
@@ -38,9 +41,24 @@ class Display():
             print ('traceback.format_exc():\n%s',traceback.format_exc())
             exit()
 
-    def prepare_images(self):
+    def loadCovid19(self):
         self.covid19.refresh() 
-        data = self.covid19.load()
+        return self.covid19.load()
+
+    def loadFriscoDeliveryData(self):
+        error, auth_token = self.friscoDeliveryObserver.authorize()
+        if error is None:
+            return self.friscoDeliveryObserver.get_delivery_data(auth_token)
+        else:
+            return error
+
+    def prepare_images(self):
+
+        # Load Covid19 data
+        data = self.loadCovid19()
+
+        # Load frisco delivery date
+        frisco_delivery_date = self.loadFriscoDeliveryData()
 
         current_poland = next(row for row in reversed(data) if row['area'] == 'Poland')
         current_total = next(row for row in reversed(data) if row['area'] == 'Total')
@@ -48,11 +66,11 @@ class Display():
         current_cases = current_poland['total_cases']
         last_cases = self._load_last()
         
-        if int(current_cases) == int(last_cases):
+        if self.REFRESH_ON_CHANGE and int(current_cases) == int(last_cases):
             return None, None
         else:
             HBlackimage = self._draw_black(current_poland)
-            HRedimage = self._draw_red(data, current_total)
+            HRedimage = self._draw_red(data, current_total, frisco_delivery_date)
             self._save_last(current_cases)
             return HBlackimage, HRedimage
 
@@ -81,27 +99,27 @@ class Display():
             self.display_width = epd2in7b.EPD_WIDTH
             self.display_height = epd2in7b.EPD_HEIGHT
 
-    def _draw_red(self, data, current_total):
+    def _draw_red(self, data, current_total, frisco_delivery_date):
         data_pl = [row for row in data if row['area'] == 'Poland']
 
         font = ImageFont.truetype(self._font_path(), self.font_size)
         HRedimage = Image.new('1', (self.display_height, self.display_width), 255)
         drawred = ImageDraw.Draw(HRedimage)
 
-        top_offset = 170
+        top_offset = 150
         x = 6
         step = math.floor((self.display_height - 6) / (len(data_pl) - 1))
         maximum = max(item['total_cases'] for item in data_pl)
-        height_step = (self.display_width - 6 * 2) / maximum
+        height_step = (self.display_width - 26 * 2) / maximum
 
         last_x = 6
         last_y = 0
-
+        
         for index, item in enumerate(data_pl):
             if index == 0:
                 last_y = int(item['total_cases'])
                 continue
-            
+            print(item['total_cases'])
             y1 = top_offset - last_y * height_step
             y2 = top_offset - int(item['total_cases']) * height_step
             drawred.line((x, y1, x + step, y2), fill = 0, width = 2)
@@ -124,6 +142,7 @@ class Display():
         drawred.text((95, 6), text, font=font, fill = 0)
         drawred.text((95, 24), "{0}".format(current_total['total_cases']), font=font, fill = 0)
         drawred.text((95, 42), "{0}".format(data_pl[-1]['total_deaths']), font=font, fill = 0)
+        drawred.text((128, 155), frisco_delivery_date, font=font, fill = 0)
         
         if data_pl[-1]['total_recovered'] > 0:
             drawred.text((95, 60), "{0}".format(data_pl[-1]['total_recovered']), font=font, fill = 0)
@@ -135,13 +154,14 @@ class Display():
         HBlackimage = Image.new('1', (self.display_height, self.display_width), 255)
         drawblack = ImageDraw.Draw(HBlackimage)
 
-        drawblack.line((6, 6, 6, self.display_width - 6), fill = 0)
-        drawblack.line((6, self.display_width - 6, self.display_height - 6, self.display_width - 6), fill = 0)
+        drawblack.line((6, 6, 6, self.display_width - 26), fill = 0)
+        drawblack.line((6, self.display_width - 26, self.display_height - 6, self.display_width - 26), fill = 0)
         
         drawblack.text((10, 6), "{0}-{1:02d}-{2:02d}: ".format(last_cases['year'], last_cases['month'], last_cases['day']), font=font, fill = 0)
-        drawblack.text((33, 24), "Total: ", font=font, fill = 0)
+        drawblack.text((48, 24), "Total: ", font=font, fill = 0)
         drawblack.text((33, 42), "Deaths: ", font=font, fill = 0)
         drawblack.text((33, 60), "Healed: ", font=font, fill = 0)
+        drawblack.text((10, 155), "Frisco delivery: ", font=font, fill = 0)
 
         return HBlackimage
 
