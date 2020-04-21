@@ -11,7 +11,8 @@ class FriscoDeliveryObserver:
 	delivery_url = 'https://commerce.frisco.pl/api/users/745598/calendar/Van'
 
 	def authorize(self):
-		token_headers = { 
+		token_headers = {
+			'Referer': 'https://www.frisco.pl/',
 			'Accept': 'application/json',
 			'Accept-Encoding': 'gzip, deflate, br',
 			'X-Frisco-Visitorid': self.get_property('visitor-id')
@@ -29,7 +30,7 @@ class FriscoDeliveryObserver:
 			tokenJson = json.loads(tokenJsonString)
 			return None, tokenJson['access_token']
 		else:
-			return "Token error: {0}".format(token_response.status_code), None
+			return "Token error: {0}".format(token_response.text), None
 	
 	def get_delivery_data(self, auth_token):
 		headers = { 
